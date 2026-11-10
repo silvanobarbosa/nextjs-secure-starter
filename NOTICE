@@ -1,0 +1,11 @@
+nextjs-secure-starter
+Copyright 2026 Silvano Barbosa
+
+A security-first Next.js golden template, released under the Apache License, Version 2.0.
+
+Portions of the guidance in CLAUDE.md reference the concept behind Google's Elephant-Goldfish
+Model (Apache-2.0, https://github.com/google/elephant-goldfish-model) for adversarial "fresh
+reviewer" review. That concept is described, not copied as code.
+
+This project bundles common open-source dependencies declared in package.json, each under its
+own license.

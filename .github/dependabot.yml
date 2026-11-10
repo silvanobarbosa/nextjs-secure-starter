@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    # cooldown: segura release nova N dias antes de abrir PR — os scanners pegam versão
+    # maliciosa antes (ondas Shai-Hulud/Miasma). CVE de segurança FURA o cooldown (patch entra na hora).
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      # agrupa patch+minor num PR só (menos ruído; major fica separado p/ revisão)
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @opentelemetry/api 1.10+ quebra o peer <1.10.0 do @opentelemetry/resources (via @vercel/otel)
+      # → ERESOLVE no `npm ci` → deploy ERROR. Fica preso em ^1.9.x (ver override no package.json).
+      - dependency-name: "@opentelemetry/api"
+        versions: [">=1.10.0"]
+    labels: [dependencies]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+    cooldown:
+      default-days: 5
+    labels: [ci]

@@ -1,0 +1,15 @@
+# Config do Squawk (gate de migração no CI). Chaves top-level (sem tabela).
+# Exclui regras que NÃO cabem no workflow drizzle (migração em transação, tabela
+# nova/vazia) ou que são escolha de schema — MANTENDO as CATASTRÓFICAS que causam
+# outage/perda de dados em QUALQUER migração:
+#   ban-drop-column, ban-drop-table, renaming-column, renaming-table,
+#   changing-column-type, disallowed-unique-constraint, adding-not-nullable-field,
+#   ban-drop-not-null, ban-char-field — essas continuam bloqueando.
+excluded_rules = [
+  "require-concurrent-index-creation",
+  "prefer-robust-stmts",
+  "prefer-timestamp-tz",
+  "require-timeout-settings",
+  "constraint-missing-not-valid",
+  "adding-foreign-key-constraint",
+]

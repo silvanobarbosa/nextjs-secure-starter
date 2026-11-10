@@ -1,0 +1,6 @@
+# artefatos de build/gerados — não são código-fonte; varrer gera falso-positivo
+# (ex: hash dentro do *.tsbuildinfo casa com a regra detected-facebook-oauth)
+*.tsbuildinfo
+.next/
+coverage/
+node_modules/

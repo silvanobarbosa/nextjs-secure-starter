@@ -1,0 +1,49 @@
+name: preview-e2e
+# #1 (rodada 3) Preview por PR: cada PR ganha um BANCO Neon branchado (dados reais),
+# aplica o schema, sobe a app e roda o E2E completo. Deleta o branch ao fim.
+# GATED: só ativa se o repo tiver o secret NEON_API_KEY + a var NEON_PROJECT_ID
+# (o golden template não tem → o job é pulado). Configure nos apps:
+#   gh secret set NEON_API_KEY   ·   gh variable set NEON_PROJECT_ID
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.c.outputs.enabled }}
+    steps:
+      - id: c
+        run: echo "enabled=${{ secrets.NEON_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+
+  preview-e2e:
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      BRANCH: pr-${{ github.event.number }}
+      SESSION_SECRET: ci-only-secret-not-real-000000000000
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24, cache: npm }
+      - run: npm ci || npm install
+      - name: cria branch Neon do PR (dados reais, isolado)
+        run: |
+          npx --yes neonctl branches create --name "$BRANCH" --project-id "$NEON_PROJECT_ID" 2>/dev/null || echo "branch já existe"
+          echo "DATABASE_URL=$(npx --yes neonctl connection-string "$BRANCH" --project-id "$NEON_PROJECT_ID" --pooled)" >> "$GITHUB_ENV"
+      - name: aplica schema no branch (drizzle push)
+        run: npx --yes drizzle-kit push
+      - name: build + browser
+        run: |
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: E2E contra o banco branchado
+        run: npm run e2e
+      - name: destrói o branch Neon (sempre)
+        if: always()
+        run: npx --yes neonctl branches delete "$BRANCH" --project-id "$NEON_PROJECT_ID" 2>/dev/null || true

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://example.com/schemas/ai-bom-v1.json",
+  "note": "AI-BOM — inventário dos componentes de IA do app (modelos, providers, prompts). Preencha se o app usa IA; some/ignore se não usa. Alimenta auditoria (OWASP LLM) + rastreabilidade.",
+  "components": [
+    {
+      "type": "model",
+      "provider": "the AI gateway (Ollama)",
+      "endpoint": "https://your-ai-gateway.example.com",
+      "model": "qwen2.5:7b-instruct",
+      "usage": "descreva onde/como (ex: sumarização, chat de suporte)",
+      "guardrails": ["ai-guard.guardInput", "ai-guard.guardOutput"],
+      "dataFlow": "input do usuário → guardInput → LLM → guardOutput → usuário"
+    }
+  ],
+  "risks": {
+    "llm01_prompt_injection": "guardInput (heurística) + prompts do sistema fora do alcance do usuário",
+    "llm02_sensitive_disclosure": "guardOutput redige PII/segredo",
+    "llm05_output_handling": "nunca renderizar output como HTML/markdown sem sanitizar; guardOutput antes"
+  }
+}

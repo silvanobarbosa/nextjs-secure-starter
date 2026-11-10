@@ -1,0 +1,32 @@
+{
+  "$schema": "https://example.com/schemas/conformity-v1.json",
+  "templateVersion": "1.14.0",
+  "baseline": {
+    "securityHeaders": [
+      "strict-transport-security",
+      "x-frame-options",
+      "x-content-type-options",
+      "referrer-policy",
+      "permissions-policy",
+      "content-security-policy"
+    ],
+    "rbac": "deny-by-default",
+    "authHardening": ["rate-limit", "admin-dual-check", "session-reauth-sensitive"],
+    "ciqa": ["semgrep", "semgrep-baseline", "npm-audit", "eslint-complexity", "tsc", "vitest-coverage", "sbom-cyclonedx", "provenance-slsa-sigstore", "a11y-lighthouse", "perf-budget-lighthouse"],
+    "endpoints": ["/api/health", "/api/ready", "/api/conformity"],
+    "observability": ["opentelemetry", "structured-logging-correlation-id"],
+    "resilience": ["readiness-probe", "idempotency-keys", "optimistic-lock", "resilient-fetch-timeout-retry-backoff-circuitbreaker", "queue-dlq-qstash"],
+    "release": ["feature-flags-killswitch", "rollback-deploy-guarded", "slo-target"],
+    "policyGate": ["conftest-opa", "no-secret-tracked"],
+    "migrationSafety": ["squawk", "drizzle-migrate-versioned"],
+    "slo": { "availabilityPct": 99.5, "latencyP95Ms": 800, "note": "medido pelo guardian sintético (optional, via env); error budget centrally" },
+    "e2e": ["playwright-smoke", "preview-neon-branch-per-pr"],
+    "product": {
+      "universal": ["empty-states", "onboarding-checklist", "error-ux", "toast-feedback"],
+      "optIn": ["analytics-posthog", "billing-stripe", "ai-feature", "retention-churn"]
+    },
+    "runtime": "node24",
+    "framework": "next"
+  },
+  "notes": "Fonte de verdade do baseline. O drift-check (optional, via env) (fleet-conformance) compara o que este app expoe em /api/conformity com este manifesto. Bump templateVersion a cada mudanca de baseline."
+}

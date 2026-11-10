@@ -1,0 +1,201 @@
+name: CI-QA
+on:
+  push: { branches: [main] }
+  pull_request:
+
+permissions:
+  contents: read
+
+# O `next build` importa cada rota para coletar a configuração dela, e a rota de login monta o
+# better-auth no import: sem banco e sem segredo de sessão, o build para antes de compilar, e o
+# e2e e o Lighthouse batem numa tela em branco.
+#
+# Nada aqui é segredo: a URL é falsa (o cliente é neon-http e só conecta na primeira consulta) e o
+# segredo de sessão muda a cada execução — as sessões da CI morrem com o runner.
+env:
+  DATABASE_URL: postgres://build:build@localhost:5432/build
+  BETTER_AUTH_SECRET: ci-descartavel-${{ github.run_id }}
+  BETTER_AUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:3000
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24, cache: npm }
+      - run: npm ci || npm install
+      - name: typecheck
+        run: npm run typecheck
+      - name: lint (complexity)
+        run: npm run lint
+      - name: doc-refs (doc↔código sync — gate)
+        run: node scripts/verify-doc-refs.mjs --strict
+      - name: runtime-closure (prod não importa devDep — gate)
+        run: node scripts/verify-runtime-closure.mjs --strict
+      - name: tests + coverage
+        run: npm run test:cov
+      - name: build
+        run: npm run build
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        continue-on-error: true # cota de artifact do GitHub esgotada não pode reprovar o gate de qualidade (tsc/lint/test/coverage já rodaram)
+        with: { name: coverage, path: coverage/, retention-days: 7 }
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - name: semgrep (regras públicas)
+        run: |
+          python3 -m pip install --quiet semgrep
+          semgrep scan --config p/security-audit --config p/secrets --severity ERROR --error .
+      - name: semgrep (baseline da casa — bloqueia em finding, tolera erro de engine)
+        run: |
+          semgrep scan --config .semgrep/baseline.yml --severity ERROR .; ec=$?
+          if [ "$ec" -eq 1 ]; then echo "::error::violação de regra de baseline da casa"; exit 1; fi
+          if [ "$ec" -eq 2 ]; then echo "::warning::semgrep baseline falhou (engine/parse) — não bloqueia"; fi
+      - name: zizmor (auditoria de segurança dos GitHub Actions — report)
+        # pega template-injection, leak de credencial, cache poisoning, impostor commit nos workflows.
+        # Report-mode primeiro (não bloqueia legado); vira gate quando limpo.
+        run: |
+          python3 -m pip install --quiet zizmor
+          zizmor --min-severity medium .github/workflows/ || echo "::warning::zizmor: achados de segurança nos workflows (revisar)"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24 }
+      - name: "npm audit — bloqueia high/crit de PRODUÇÃO; dev é report (aprendido: undici/xlsx; braces/esbuild dev-only sem fix forward)"
+        run: |
+          npm i --package-lock-only --silent || true
+          # Gate no que EMBARCA: deps de produção. É o que vira superfície de ataque do app.
+          npm audit --omit=dev --audit-level=high
+          # Dev-chain (eslint→braces, drizzle-kit→@esbuild-kit→esbuild) tem advisory de DoS/
+          # dev-server cuja única "correção" do npm é downgrade quebrado — não derruba o molde,
+          # vira report pra ninguém esquecer dela.
+          echo "::group::npm audit (dev — informativo, não bloqueia)"
+          npm audit --audit-level=high || true
+          echo "::endgroup::"
+
+  # #1 (rodada 3) E2E smoke — Playwright contra a app buildada (páginas públicas, sem DB).
+  # O E2E completo com dados reais roda no preview-e2e.yml (banco Neon branchado por PR).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24, cache: npm }
+      - run: npm ci || npm install
+      - name: build
+        run: npm run build
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+      - name: instala browser
+        run: npx playwright install --with-deps chromium
+      - name: Playwright E2E (smoke)
+        run: npm run e2e
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+
+  # #2 (rodada 3) segurança de migração: Squawk barra DDL perigoso (lock/rewrite) no CI
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24 }
+      - name: Squawk (análise estática das migrations Postgres)
+        # exclui 2 regras que não se aplicam ao workflow drizzle (migração em txn,
+        # tabela vazia): CONCURRENTLY não roda em txn; IF NOT EXISTS é estilo.
+        # Mantém as CATASTRÓFICAS: drop/rename de coluna, mudança de tipo, unique
+        # em tabela grande, coluna NOT NULL sem default — as que causam outage/perda.
+        run: |
+          if ls drizzle/*.sql >/dev/null 2>&1; then
+            npx --yes squawk-cli@2 -c .squawk.toml drizzle/*.sql
+          else
+            echo "sem migrations SQL em drizzle/ — nada a checar"
+          fi
+
+  # #6 política-como-código: o baseline vira GATE (Conftest/OPA) + nenhum segredo trackeado
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - name: nenhum segredo commitado (gate)
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env|\.env\.[^e].*|id_rsa|.*\.pem)$'; then
+            echo "::error::arquivo sensível rastreado no git"; exit 1
+          fi
+          echo "sem segredo trackeado ✓"
+      - name: instala conftest
+        run: |
+          V=0.68.2
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${V}/conftest_${V}_Linux_x86_64.tar.gz" -o c.tgz
+          tar xzf c.tgz conftest && sudo mv conftest /usr/local/bin/
+      - name: policy gate (baseline como código)
+        run: conftest test conformity.json --policy .policy --all-namespaces
+
+  # #3 qualidade de front: acessibilidade (gate) + performance budget (Lighthouse CI)
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24, cache: npm }
+      - run: npm ci || npm install
+      - name: build
+        run: npm run build
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+      - name: Lighthouse CI (a11y ≥0.9 gate · perf/seo/budget warn)
+        run: npx --yes @lhci/cli@0.15 autorun
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+
+  # #1 procedência de build: SBOM (CycloneDX) + provenance SLSA, assinados keyless
+  # (Sigstore via OIDC do GitHub). Só no push da main (precisa de OIDC, não roda em PR de fork).
+  # Verificar depois: gh attestation verify app-build.tgz --repo <owner>/<repo>
+  provenance:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [quality, security]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # OIDC p/ assinatura keyless (Fulcio/Rekor)
+      attestations: write    # grava a attestation no repo
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+        with: { node-version: 24, cache: npm }
+      - run: npm ci || npm install
+      - name: build
+        run: npm run build
+        env:
+          SESSION_SECRET: ci-only-secret-not-real-000000000000
+      - name: SBOM (CycloneDX via Syft — robusto, lê o lockfile)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - name: empacota o build (subject da procedência)
+        run: tar czf app-build.tgz .next package.json package-lock.json sbom.cdx.json
+      # cosign keyless (Sigstore) — assina o build + o SBOM via OIDC do GitHub.
+      # (as attestations nativas do GitHub não rodam em repo privado de conta pessoal;
+      #  cosign sign-blob usa Fulcio/Rekor direto e funciona em repo privado.)
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: assina build + SBOM (cosign keyless — Fulcio/Rekor)
+        run: |
+          cosign sign-blob --yes app-build.tgz  --bundle app-build.tgz.sigstore.json
+          cosign sign-blob --yes sbom.cdx.json   --bundle sbom.cdx.json.sigstore.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        continue-on-error: true # cota de artifact esgotada não reprova a procedência (assinaturas cosign já foram pro Rekor)
+        with:
+          name: sbom-and-provenance
+          path: |
+            sbom.cdx.json
+            app-build.tgz
+            app-build.tgz.sigstore.json
+            sbom.cdx.json.sigstore.json
+          retention-days: 30

@@ -1,0 +1,23 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "npm start",
+      "startServerReadyPattern": "Ready|started server|Local:",
+      "url": ["http://localhost:3000/login"],
+      "numberOfRuns": 1,
+      "settings": { "chromeFlags": "--no-sandbox --headless=new" }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "categories:best-practices": ["warn", { "minScore": 0.9 }],
+        "categories:performance": ["warn", { "minScore": 0.8 }],
+        "categories:seo": ["warn", { "minScore": 0.9 }],
+        "resource-summary:script:size": ["warn", { "maxNumericValue": 300000 }],
+        "resource-summary:image:size": ["warn", { "maxNumericValue": 500000 }],
+        "total-byte-weight": ["warn", { "maxNumericValue": 1600000 }]
+      }
+    },
+    "upload": { "target": "temporary-public-storage" }
+  }
+}
