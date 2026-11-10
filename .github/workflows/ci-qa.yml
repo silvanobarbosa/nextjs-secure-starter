@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
       - name: typecheck
@@ -64,7 +64,7 @@ jobs:
         run: |
           python3 -m pip install --quiet zizmor
           zizmor --min-severity medium .github/workflows/ || echo "::warning::zizmor: achados de segurança nos workflows (revisar)"
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24 }
       - name: "npm audit — bloqueia high/crit de PRODUÇÃO; dev é report (aprendido: undici/xlsx; braces/esbuild dev-only sem fix forward)"
         run: |
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
       - name: build
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24 }
       - name: Squawk (análise estática das migrations Postgres)
         # exclui 2 regras que não se aplicam ao workflow drizzle (migração em txn,
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
       - name: build
@@ -166,7 +166,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
       - name: build
