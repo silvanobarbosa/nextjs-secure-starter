@@ -22,7 +22,7 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
@@ -48,7 +48,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - name: semgrep (regras públicas)
         run: |
           python3 -m pip install --quiet semgrep
@@ -83,7 +83,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
@@ -102,7 +102,7 @@ jobs:
   migrations:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
         with: { node-version: 24 }
       - name: Squawk (análise estática das migrations Postgres)
@@ -121,7 +121,7 @@ jobs:
   policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - name: nenhum segredo commitado (gate)
         run: |
           if git ls-files | grep -E '(^|/)(\.env|\.env\.[^e].*|id_rsa|.*\.pem)$'; then
@@ -140,7 +140,7 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
@@ -165,7 +165,7 @@ jobs:
       attestations: write    # grava a attestation no repo
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v6
         with: { node-version: 24, cache: npm }
       - run: npm ci || npm install
